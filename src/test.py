@@ -1,6 +1,5 @@
 import lightning as L
 import torchvision
-from lightning.pytorch import callbacks as pl_callbacks
 from lightning.pytorch import loggers as pl_loggers
 from lightning.pytorch.tuner import Tuner
 from mimic_cxr_jpg_loader.modifiers import *
@@ -13,7 +12,10 @@ L.pytorch.seed_everything(42, workers=True)
 
 
 densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
-classifier_module = ExplainableClassifier(densenet)
+classifier_module = ExplainableClassifier.load_from_checkpoint(
+    "/nas-ctm01/homes/fpcampos/dev/explanations/explanations/tz9u4b0a/checkpoints/best_model.ckpt",
+    model=densenet
+) # TODO: This should a an arg
 
 datamodule = MIMICCXRDataModule(
     root="/nas-ctm01/datasets/public/MEDICAL/MIMIC-CXR",
@@ -22,20 +24,10 @@ datamodule = MIMICCXRDataModule(
 )
 
 trainer = L.Trainer(
-    max_epochs=100,
     logger=pl_loggers.WandbLogger(project="explanations", name="train"),  # TODO: adjust
-    callbacks=[
-        pl_callbacks.ModelSummary(
-            max_depth=3,
-        ),
-        pl_callbacks.ModelCheckpoint(
-            monitor="val_f1", filename="best_model", save_top_k=1, mode="max"
-        ),
-        pl_callbacks.EarlyStopping(monitor="val_loss", patience=5, mode="min"),
-    ],
     deterministic=True,
 )
 
-tuner = Tuner(trainer)
-tuner.scale_batch_size(classifier_module, datamodule=datamodule)
-trainer.fit(classifier_module, datamodule)  # TODO: Moreeee args
+# trainer.test(classifier_module, datamodule=datamodule)  # TODO: Moreeee args
+trainer.test(classifier_module, dataloaders=datamodule.test_dataloader())  # TODO: Moreeee args
+
