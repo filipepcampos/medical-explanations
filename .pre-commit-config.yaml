@@ -101,30 +101,21 @@ repos:
           - id: add-trailing-comma
             name: add-trailing-comma
             description: Automatically add trailing commas to calls and literals.
-    - repo: https://github.com/PyCQA/flake8
-      rev: 7.0.0
+    - repo: https://github.com/astral-sh/ruff-pre-commit
+      # Ruff version.
+      rev: v0.4.8
       hooks:
-          - id: flake8
-            name: flake8 - check the style and quality of some python code
-            description: Python tool that glues together pycodestyle, pyflakes, mccabe, and third-party plugins to check the style and quality of some python code
-            args: ["--ignore=E501,N812,VNE001,T201"]
-            additional_dependencies:
-                - flake8-bugbear
-                - flake8-variables-names
-                - pep8-naming
-                - flake8-print
-                - flake8-broken-line
-                - flake8-comprehensions
-                - flake8-eradicate
-                #- flake8-walrus==1.1.0
-                - flake8-typing-imports==1.12.0
-                #- flake8-match==1.0.0
+        # Run the linter.
+        - id: ruff
+          args: [ --fix ]
+        # Run the formatter.
+        - id: ruff-format
     - repo: https://github.com/psf/black
       rev: 24.4.2
       hooks:
-          - id: black
-            name: black - consistent Python code formatting
-            description: The uncompromising Python code formatter
+        - id: black
+          name: black - consistent Python code formatting
+          description: The uncompromising Python code formatter
     - repo: https://github.com/asottile/pyupgrade
       rev: v3.15.2
       hooks:
