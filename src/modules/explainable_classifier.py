@@ -51,7 +51,6 @@ class ExplainableClassifier(L.LightningModule):
     def test_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         x, y = batch
 
-        print(self.model(x))
         prediction = self.model(x)
         prediction = nn.functional.sigmoid(prediction).squeeze()
 
@@ -65,7 +64,6 @@ class ExplainableClassifier(L.LightningModule):
         return loss
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        print(self.model(x))
         prediction, features = self.model(x)
         return prediction
 
