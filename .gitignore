@@ -160,5 +160,5 @@ cython_debug/
 #.idea/
 
 wandb
-.out
-.err
+*.out
+*.err
