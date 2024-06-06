@@ -9,6 +9,7 @@ from data.mimic_datamodule import MIMICCXRDataModule
 from models.densenet import DenseNet121
 from modules.explainable_classifier import ExplainableClassifier
 
+
 class FlowerClient(fl.client.NumPyClient):
     def __init__(self, model, train_loader, val_loader, test_loader):
         self.model = model
@@ -60,7 +61,11 @@ def main() -> None:
         split_path="/nas-ctm01/homes/fpcampos/dev/diffusion/medfusion/data/mimic-cxr-2.0.0-split.csv",
         batch_size=32,
     )
-    train_loader, val_loader, test_loader = datamodule.train_dataloader(), datamodule.val_dataloader(), datamodule.test_dataloader()
+    train_loader, val_loader, test_loader = (
+        datamodule.train_dataloader(),
+        datamodule.val_dataloader(),
+        datamodule.test_dataloader(),
+    )
 
     # Flower client
     client = FlowerClient(model, train_loader, val_loader, test_loader).to_client()

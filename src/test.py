@@ -1,8 +1,6 @@
 import lightning as L
 import torchvision
 from lightning.pytorch import loggers as pl_loggers
-from lightning.pytorch.tuner import Tuner
-from mimic_cxr_jpg_loader.modifiers import *
 
 from data.mimic_datamodule import MIMICCXRDataModule
 from models.densenet import DenseNet121
@@ -14,8 +12,8 @@ L.pytorch.seed_everything(42, workers=True)
 densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
 classifier_module = ExplainableClassifier.load_from_checkpoint(
     "/nas-ctm01/homes/fpcampos/dev/explanations/explanations/tz9u4b0a/checkpoints/best_model.ckpt",
-    model=densenet
-) # TODO: This should a an arg
+    model=densenet,
+)  # TODO: This should a an arg
 
 datamodule = MIMICCXRDataModule(
     root="/nas-ctm01/datasets/public/MEDICAL/MIMIC-CXR",
@@ -29,5 +27,7 @@ trainer = L.Trainer(
 )
 
 # trainer.test(classifier_module, datamodule=datamodule)  # TODO: Moreeee args
-trainer.test(classifier_module, dataloaders=datamodule.test_dataloader())  # TODO: Moreeee args
-
+trainer.test(
+    classifier_module,
+    dataloaders=datamodule.test_dataloader(),
+)  # TODO: Moreeee args

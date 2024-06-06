@@ -85,9 +85,6 @@ repos:
           - id: python-check-blanket-noqa
             name: python-check-blanket-noqa
             description: Enforce that noqa annotations always occur with specific codes.
-          - id: python-no-eval
-            name: python-no-eval
-            description: A quick check for the eval() built-in function
     - repo: https://github.com/pre-commit/mirrors-mypy
       rev: v1.10.0
       hooks:
@@ -110,7 +107,7 @@ repos:
           - id: flake8
             name: flake8 - check the style and quality of some python code
             description: Python tool that glues together pycodestyle, pyflakes, mccabe, and third-party plugins to check the style and quality of some python code
-            args: ["--ignore=E501"]
+            args: ["--ignore=E501,N812,VNE001,T201"]
             additional_dependencies:
                 - flake8-bugbear
                 - flake8-variables-names

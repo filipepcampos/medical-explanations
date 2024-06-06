@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+
 class ExplainableClassifier(L.LightningModule):
     def __init__(self, model: nn.Module):
         super().__init__()
@@ -23,7 +24,7 @@ class ExplainableClassifier(L.LightningModule):
         prediction = self.model(x)
         prediction = nn.functional.sigmoid(prediction).squeeze()
 
-        loss = nn.functional.binary_cross_entropy(prediction.float(), y.float()) 
+        loss = nn.functional.binary_cross_entropy(prediction.float(), y.float())
         self.log("train_loss", loss)
         self.train_acc(prediction, y)
         self.log("train_acc", self.train_acc, on_step=True, on_epoch=False)
@@ -46,7 +47,7 @@ class ExplainableClassifier(L.LightningModule):
         self.log("val_f1", self.val_f1, on_step=False, on_epoch=True)
 
         return loss
-    
+
     def test_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         x, y = batch
 
@@ -67,7 +68,7 @@ class ExplainableClassifier(L.LightningModule):
         print(self.model(x))
         prediction, features = self.model(x)
         return prediction
-    
+
     def forward_features(self, x: torch.Tensor) -> torch.Tensor:
         prediction, features = self.model(x)
         return prediction, features

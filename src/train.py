@@ -3,7 +3,6 @@ import torchvision
 from lightning.pytorch import callbacks as pl_callbacks
 from lightning.pytorch import loggers as pl_loggers
 from lightning.pytorch.tuner import Tuner
-from mimic_cxr_jpg_loader.modifiers import *
 
 from data.mimic_datamodule import MIMICCXRDataModule
 from models.densenet import DenseNet121
@@ -29,7 +28,10 @@ trainer = L.Trainer(
             max_depth=3,
         ),
         pl_callbacks.ModelCheckpoint(
-            monitor="val_f1", filename="best_model", save_top_k=1, mode="max"
+            monitor="val_f1",
+            filename="best_model",
+            save_top_k=1,
+            mode="max",
         ),
         pl_callbacks.EarlyStopping(monitor="val_loss", patience=5, mode="min"),
     ],

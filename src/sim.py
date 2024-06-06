@@ -17,9 +17,15 @@ import torch
 densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
 model = ExplainableClassifier(densenet)
 
+
 def create_client(datamodule) -> FlowerClient:
-    train_loader, val_loader, test_loader = datamodule.train_dataloader(), datamodule.val_dataloader(), datamodule.test_dataloader()
+    train_loader, val_loader, test_loader = (
+        datamodule.train_dataloader(),
+        datamodule.val_dataloader(),
+        datamodule.test_dataloader(),
+    )
     return FlowerClient(model, train_loader, val_loader, test_loader).to_client()
+
 
 def get_mimic_client() -> FlowerClient:
     datamodule = MIMICCXRDataModule(
@@ -29,6 +35,7 @@ def get_mimic_client() -> FlowerClient:
     )
     return create_client(datamodule)
 
+
 def get_chexpert_client() -> FlowerClient:
     datamodule = ChexpertDataModule(
         root="/nas-ctm01/datasets/public/MEDICAL/CheXpert-small",
@@ -36,12 +43,14 @@ def get_chexpert_client() -> FlowerClient:
     )
     return create_client(datamodule)
 
+
 def get_brax_client() -> FlowerClient:
     datamodule = BraxDataModule(
         root="/nas-ctm01/datasets/public/MEDICAL/BRAX/physionet.org",
         batch_size=32,
     )
     return create_client(datamodule)
+
 
 def client_fn(cid: str):
     if cid == "0":
@@ -53,8 +62,6 @@ def client_fn(cid: str):
     raise Exception(f"Unknown client: {cid}")
 
 
-# Define strategy
-
 class SaveModelStrategy(fl.server.strategy.FedAvg):
     def aggregate_fit(
         self,
@@ -65,13 +72,19 @@ class SaveModelStrategy(fl.server.strategy.FedAvg):
         """Aggregate model weights using weighted average and store checkpoint"""
 
         # Call aggregate_fit from base class (FedAvg) to aggregate parameters and metrics
-        aggregated_parameters, aggregated_metrics = super().aggregate_fit(server_round, results, failures)
+        aggregated_parameters, aggregated_metrics = super().aggregate_fit(
+            server_round,
+            results,
+            failures,
+        )
 
         if aggregated_parameters is not None:
             print(f"Saving round {server_round} aggregated_parameters...")
 
             # Convert `Parameters` to `List[np.ndarray]`
-            aggregated_ndarrays: List[np.ndarray] = fl.common.parameters_to_ndarrays(aggregated_parameters)
+            aggregated_ndarrays: List[np.ndarray] = fl.common.parameters_to_ndarrays(
+                aggregated_parameters,
+            )
 
             # Convert `List[np.ndarray]` to PyTorch`state_dict`
             params_dict = zip(model.state_dict().keys(), aggregated_ndarrays)
@@ -82,6 +95,7 @@ class SaveModelStrategy(fl.server.strategy.FedAvg):
             torch.save(model.state_dict(), f"model_round_{server_round}.pth")
 
         return aggregated_parameters, aggregated_metrics
+
 
 strategy = fl.server.strategy.FedAvg(
     fraction_fit=0.5,
@@ -98,7 +112,7 @@ dp_strategy = fl.server.strategy.DifferentialPrivacyServerSideAdaptiveClipping(
 
 N_CLIENTS = 3
 
-client_resources = {'num_cpus': 1, 'num_gpus': 1/N_CLIENTS}
+client_resources = {"num_cpus": 1, "num_gpus": 1 / N_CLIENTS}
 
 
 client = fl.client.ClientApp(
@@ -110,18 +124,20 @@ server = fl.server.ServerApp(
     strategy=dp_strategy,
 )
 
+
 def main():
 
     # Launch the simulation
     history = fl.simulation.start_simulation(
-        client_fn=client_fn, # A function to run a _virtual_ client when required
+        client_fn=client_fn,  # A function to run a _virtual_ client when required
         num_clients=N_CLIENTS,
-    #    client_resources=client_resources,
-        config=fl.server.ServerConfig(num_rounds=3), # Specify number of FL rounds
-        strategy=   dp_strategy, # A Flower strategy
+        client_resources=client_resources,
+        config=fl.server.ServerConfig(num_rounds=3),  # Specify number of FL rounds
+        strategy=dp_strategy,  # A Flower strategy
     )
 
     print(history)
+
 
 if __name__ == "__main__":
     main()
