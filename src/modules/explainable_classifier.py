@@ -3,8 +3,9 @@ import lightning as L
 import torchmetrics
 import torch.nn as nn
 import torch.optim as optim
+import pytorch_lightning as pl
 
-class ExplainableClassifier(L.LightningModule):
+class ExplainableClassifier(pl.LightningModule):
     def __init__(self, model):
         super().__init__()
 
@@ -20,7 +21,7 @@ class ExplainableClassifier(L.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
 
-        prediction, _ = self.model(x)
+        prediction = self.model(x)
         prediction = nn.functional.sigmoid(prediction).squeeze()
 
         loss = nn.functional.binary_cross_entropy(prediction.float(), y.float()) # TODO: .float were added only for synth training
@@ -35,7 +36,7 @@ class ExplainableClassifier(L.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
 
-        prediction, features = self.model(x)
+        prediction = self.model(x)
         prediction = nn.functional.sigmoid(prediction).squeeze()
 
         loss = nn.functional.binary_cross_entropy(prediction.float(), y.float())
@@ -50,7 +51,8 @@ class ExplainableClassifier(L.LightningModule):
     def test_step(self, batch, batch_idx):
         x, y = batch
 
-        prediction, features = self.model(x)
+        print(self.model(x))
+        prediction = self.model(x)
         prediction = nn.functional.sigmoid(prediction).squeeze()
 
         loss = nn.functional.binary_cross_entropy(prediction.float(), y.float())
@@ -63,6 +65,11 @@ class ExplainableClassifier(L.LightningModule):
         return loss
 
     def forward(self, x):
+        print(self.model(x))
+        prediction, features = self.model(x)
+        return prediction
+    
+    def forward_features(self, x):
         prediction, features = self.model(x)
         return prediction, features
 
