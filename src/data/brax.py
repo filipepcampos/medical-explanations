@@ -6,7 +6,7 @@ from PIL import Image
 import pandas as pd
 import torch
 from torchvision import transforms
-import pytorch_lightning as L
+import lightning as L
 
 # Obtained from
 # https://github.com/kamenbliznashki/chexpert/blob/master/dataset.py
@@ -128,16 +128,3 @@ class BraxDataModule(L.LightningDataModule):
             data_filter=data_filter,
         )
     
-
-# TODO: Debug only
-if __name__ == "__main__":
-    datamodule = BraxDataModule(
-        root="/nas-ctm01/datasets/public/MEDICAL/BRAX/physionet.org",
-        batch_size=32,
-    )
-
-    ds = datamodule._get_dataset("train")
-    print(ds[0])
-
-    train_loader = datamodule.train_dataloader()
-    print(next(iter(train_loader)))

@@ -1,12 +1,11 @@
-from typing import Any
 import lightning as L
 import torchmetrics
+import torch
 import torch.nn as nn
 import torch.optim as optim
-import pytorch_lightning as pl
 
-class ExplainableClassifier(pl.LightningModule):
-    def __init__(self, model):
+class ExplainableClassifier(L.LightningModule):
+    def __init__(self, model: nn.Module):
         super().__init__()
 
         self.model = model
@@ -18,13 +17,13 @@ class ExplainableClassifier(pl.LightningModule):
         self.test_acc = torchmetrics.classification.Accuracy(task="binary")
         self.test_f1 = torchmetrics.classification.F1Score(task="binary")
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         x, y = batch
 
         prediction = self.model(x)
         prediction = nn.functional.sigmoid(prediction).squeeze()
 
-        loss = nn.functional.binary_cross_entropy(prediction.float(), y.float()) # TODO: .float were added only for synth training
+        loss = nn.functional.binary_cross_entropy(prediction.float(), y.float()) 
         self.log("train_loss", loss)
         self.train_acc(prediction, y)
         self.log("train_acc", self.train_acc, on_step=True, on_epoch=False)
@@ -33,7 +32,7 @@ class ExplainableClassifier(pl.LightningModule):
 
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         x, y = batch
 
         prediction = self.model(x)
@@ -48,7 +47,7 @@ class ExplainableClassifier(pl.LightningModule):
 
         return loss
     
-    def test_step(self, batch, batch_idx):
+    def test_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         x, y = batch
 
         print(self.model(x))
@@ -64,12 +63,12 @@ class ExplainableClassifier(pl.LightningModule):
 
         return loss
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         print(self.model(x))
         prediction, features = self.model(x)
         return prediction
     
-    def forward_features(self, x):
+    def forward_features(self, x: torch.Tensor) -> torch.Tensor:
         prediction, features = self.model(x)
         return prediction, features
 

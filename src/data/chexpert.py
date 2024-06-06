@@ -6,7 +6,7 @@ from PIL import Image
 import pandas as pd
 import torch
 from torchvision import transforms
-import pytorch_lightning as L
+import lightning as L
 
 # Obtained from
 # https://github.com/kamenbliznashki/chexpert/blob/master/dataset.py
@@ -28,13 +28,11 @@ class ChexpertSmall(Dataset):
         # if mode is train/valid; root is path to data folder with `train`/`valid` csv file to construct dataset.
         test_df, train_df = self._maybe_process(data_filter)
 
-        # Split train into train and valid
         if mode == 'test':
             self.data = test_df
         else:
-            # Split data into train, validation and test
-            train_df = train_df.sample(frac=0.8, random_state=0)
-            valid_df = train_df.drop(train_df.index)
+            valid_df = train_df.sample(frac=0.2, random_state=0)
+            train_df = train_df.drop(valid_df.index)
             self.data = valid_df if mode == 'valid' else train_df
 
         # store index of the selected attributes in the columns of the data for faster indexing

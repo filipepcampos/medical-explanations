@@ -1,4 +1,4 @@
-import pytorch_lightning as L
+import lightning as L
 from torch import utils
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
