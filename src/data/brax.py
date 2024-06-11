@@ -56,6 +56,7 @@ class Brax(Dataset):
         return img, attr
 
     def __len__(self):
+        return min(128, len(self.data))
         return len(self.data)
 
     def _maybe_process(self, data_filter):
@@ -124,8 +125,8 @@ class BraxDataModule(L.LightningDataModule):
                 transforms.Resize((256, 256)),
                 transforms.ToTensor(),
                 transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225],
+                    mean=0.5,
+                    std=0.5,
                 ),
             ],
         )
