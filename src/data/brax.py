@@ -56,7 +56,6 @@ class Brax(Dataset):
         return img, attr
 
     def __len__(self):
-        return min(128, len(self.data))
         return len(self.data)
 
     def _maybe_process(self, data_filter):

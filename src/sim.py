@@ -117,7 +117,6 @@ def client_fn(cid: str):
 
 def metrics_aggregation_fn(metrics):
     result = {}
-    print("Metrics:", metrics)
     for count, metric_dict in metrics:
         for metric_name, metric_val in metric_dict.items():
             current_count, current_val = result.get(metric_name, (0, 0))
@@ -148,7 +147,9 @@ def main():
         client_fn=client_fn,  # A function to run a _virtual_ client when required
         num_clients=N_CLIENTS,
         client_resources=client_resources,
-        config=fl.server.ServerConfig(num_rounds=2),  # Specify number of FL rounds
+        config=fl.server.ServerConfig(
+            num_rounds=N_ROUNDS,
+        ),  # Specify number of FL rounds
         strategy=strategy,  # A Flower strategy
     )
 

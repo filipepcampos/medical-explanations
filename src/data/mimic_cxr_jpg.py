@@ -156,7 +156,6 @@ class MIMICCXRJPG(Dataset):
         )
 
     def __len__(self):
-        return min(128, len(self.dataset))
         return len(self.dataset)
 
     def __getitem__(self, idx):
