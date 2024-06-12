@@ -51,21 +51,19 @@ class ExplainableClassifier(L.LightningModule):
     def test_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         x, y = batch
 
-        print(self.model(x))
         prediction = self.model(x)
         prediction = nn.functional.sigmoid(prediction).squeeze()
 
         loss = nn.functional.binary_cross_entropy(prediction.float(), y.float())
         self.log("test_loss", loss)
-        self.val_acc(prediction, y)
-        self.log("test_acc", self.val_acc, on_step=False, on_epoch=True)
-        self.val_f1(prediction, y)
-        self.log("test_f1", self.val_f1, on_step=False, on_epoch=True)
+        self.test_acc(prediction, y)
+        self.log("test_acc", self.test_acc, on_step=False, on_epoch=True)
+        self.test_f1(prediction, y)
+        self.log("test_f1", self.test_f1, on_step=False, on_epoch=True)
 
         return loss
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        print(self.model(x))
         prediction, features = self.model(x)
         return prediction
 

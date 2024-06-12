@@ -66,8 +66,8 @@ class SyntheticMIMICCXRDataModule(L.LightningDataModule):
                     transforms.Resize((256, 256)),
                     transforms.ToTensor(),
                     transforms.Normalize(
-                        mean=[0.485, 0.456, 0.406],
-                        std=[0.229, 0.224, 0.225],
+                        mean=0.5,
+                        std=0.5,
                     ),
                 ],
             ),
@@ -141,8 +141,8 @@ class MIMICCXRJPG(Dataset):
                     torchvision.transforms.Resize((256, 256)),
                     torchvision.transforms.ToTensor(),
                     torchvision.transforms.Normalize(
-                        mean=[0.485, 0.456, 0.406],
-                        std=[0.229, 0.224, 0.225],
+                        mean=0.5,
+                        std=0.5,
                     ),
                 ],
             )
