@@ -98,6 +98,7 @@ class ChexpertSmall(Dataset):
         # 1. fill NAs (blanks for unmentioned) as 0 (negatives)
         # attr columns ['No Finding', ..., 'Support Devices']; note AP/PA remains with NAs for Lateral pictures
         train_df[self.attr_names] = train_df[self.attr_names].fillna(0)
+        train_df.dropna(subset=self.attr_names)
 
         # 2. fill -1 as 1 (U-Ones method described in paper)  # TODO -- setup options for uncertain labels
         train_df[self.attr_names] = train_df[self.attr_names].replace(-1, 1)

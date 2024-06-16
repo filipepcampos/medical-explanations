@@ -3,8 +3,6 @@ import argparse
 import torchvision
 import lightning as L
 from lightning.pytorch import callbacks as pl_callbacks
-from lightning.pytorch import loggers as pl_loggers
-from lightning.pytorch.tuner import Tuner
 
 from data.mimic_cxr_jpg import MIMICCXRDataModule
 from data.chexpert import ChexpertDataModule
@@ -18,6 +16,7 @@ L.pytorch.seed_everything(42, workers=True)
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", type=int, default=32)
 parser.add_argument("--dataset", type=str, default="mimic-cxr")
+parser.add_argument("--checkpoint", type=str)
 
 
 def get_datamodule(dataset: str, batch_size: int):
@@ -44,16 +43,16 @@ def main():
     args = parser.parse_args()
 
     densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
-    classifier_module = ExplainableClassifier(densenet)
+
+    classifier_module = ExplainableClassifier.load_from_checkpoint(
+        args.checkpoint,
+        model=densenet,
+    )
 
     datamodule = get_datamodule(args.dataset, args.batch_size)
 
     trainer = L.Trainer(
         max_epochs=100,
-        logger=pl_loggers.WandbLogger(
-            project="fl_cbe",
-            name=f"centralized_{args.dataset}",
-        ),
         callbacks=[
             pl_callbacks.ModelSummary(
                 max_depth=3,
@@ -69,9 +68,6 @@ def main():
         deterministic=True,
     )
 
-    tuner = Tuner(trainer)
-    tuner.scale_batch_size(classifier_module, datamodule=datamodule)
-    trainer.fit(classifier_module, datamodule)
     trainer.test(classifier_module, datamodule)
 
 

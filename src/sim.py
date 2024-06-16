@@ -1,4 +1,7 @@
 import flwr as fl
+from typing import List, Tuple, Union, Optional, Dict
+from collections import OrderedDict
+import numpy as np
 from federated.client import FlowerClient
 from data.mimic_cxr_jpg import MIMICCXRDataModule
 from data.chexpert import ChexpertDataModule
@@ -10,7 +13,7 @@ import torchvision
 import torch
 
 N_CLIENTS = 3
-N_ROUNDS = 20
+N_ROUNDS = 6
 
 densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
 model = ExplainableClassifier(densenet)
@@ -59,49 +62,44 @@ def client_fn(cid: str):
     raise Exception(f"Unknown client: {cid}")
 
 
-# class CustomStrategy(fl.server.strategy.FedAvg):
-#     def aggregate_fit(
-#         self,
-#         server_round: int,
-#         results: List[Tuple[fl.server.client_proxy.ClientProxy, fl.common.FitRes]],
-#         failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
-#     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-#         """Aggregate model weights using weighted average and store checkpoint"""
+class SaveModelStrategy(fl.server.strategy.FedAvg):
+    def aggregate_fit(
+        self,
+        server_round: int,
+        results: List[Tuple[fl.server.client_proxy.ClientProxy, fl.common.FitRes]],
+        failures: List[
+            Union[
+                Tuple[fl.server.client_proxy.ClientProxy, fl.common.FitRes],
+                BaseException,
+            ]
+        ],
+    ) -> Tuple[Optional[fl.common.Parameters], Dict[str, fl.common.Scalar]]:
+        """Aggregate model weights using weighted average and store checkpoint"""
 
-#         # Call aggregate_fit from base class (FedAvg) to aggregate parameters and metrics
-#         aggregated_parameters, aggregated_metrics = super().aggregate_fit(
-#             server_round,
-#             results,
-#             failures,
-#         )
+        # Call aggregate_fit from base class (FedAvg) to aggregate parameters and metrics
+        aggregated_parameters, aggregated_metrics = super().aggregate_fit(
+            server_round,
+            results,
+            failures,
+        )
 
-#         metrics = {
-#             "acc": 0,
-#             "f1": 0,
-#         }
+        if aggregated_parameters is not None:
+            print(f"Saving round {server_round} aggregated_parameters...")
 
-#         for metric in metrics:
-#             vals = [r.metrics.get(metric, 0) for _, r in results]
-#             examples = [r.num_examples for _, r in results]
-#             metrics[metric] = sum(vals) / sum(examples)
+            # Convert `Parameters` to `List[np.ndarray]`
+            aggregated_ndarrays: List[np.ndarray] = fl.common.parameters_to_ndarrays(
+                aggregated_parameters,
+            )
 
-#         if aggregated_parameters is not None:
-#             print(f"Saving round {server_round} aggregated_parameters...")
+            # Convert `List[np.ndarray]` to PyTorch`state_dict`
+            params_dict = zip(model.state_dict().keys(), aggregated_ndarrays)
+            state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+            model.load_state_dict(state_dict, strict=True)
 
-#             # Convert `Parameters` to `List[np.ndarray]`
-#             aggregated_ndarrays: List[np.ndarray] = fl.common.parameters_to_ndarrays(
-#                 aggregated_parameters,
-#             )
+            # Save the model
+            torch.save(model.state_dict(), "model_fl_latest.pth")
 
-#             # Convert `List[np.ndarray]` to PyTorch`state_dict`
-#             params_dict = zip(model.state_dict().keys(), aggregated_ndarrays)
-#             state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-#             model.load_state_dict(state_dict, strict=True)
-
-#             # Save the model
-#             torch.save(model.state_dict(), "latest_fl_model.pth")
-
-#         return aggregated_parameters, metrics
+        return aggregated_parameters, aggregated_metrics
 
 
 # strategy = fl.server.strategy.DifferentialPrivacyServerSideAdaptiveClipping(
@@ -132,7 +130,7 @@ def metrics_aggregation_fn(metrics):
 
 
 strategy = fl.server.strategy.FedAvg(
-    fraction_fit=0.5,
+    fraction_fit=1.0,
     fraction_evaluate=1.0,
     fit_metrics_aggregation_fn=metrics_aggregation_fn,
     evaluate_metrics_aggregation_fn=metrics_aggregation_fn,

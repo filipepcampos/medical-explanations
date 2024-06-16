@@ -13,10 +13,13 @@ class ExplainableClassifier(L.LightningModule):
 
         self.train_acc = torchmetrics.classification.Accuracy(task="binary")
         self.train_f1 = torchmetrics.classification.F1Score(task="binary")
+        self.train_auc = torchmetrics.classification.AUROC(task="binary")
         self.val_acc = torchmetrics.classification.Accuracy(task="binary")
         self.val_f1 = torchmetrics.classification.F1Score(task="binary")
+        self.val_auc = torchmetrics.classification.AUROC(task="binary")
         self.test_acc = torchmetrics.classification.Accuracy(task="binary")
         self.test_f1 = torchmetrics.classification.F1Score(task="binary")
+        self.test_auc = torchmetrics.classification.AUROC(task="binary")
 
     def training_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         x, y = batch
@@ -30,6 +33,8 @@ class ExplainableClassifier(L.LightningModule):
         self.log("train_acc", self.train_acc, on_step=True, on_epoch=False)
         self.train_f1(prediction, y)
         self.log("train_f1", self.train_f1, on_step=True, on_epoch=False)
+        self.train_auc(prediction, y)
+        self.log("train_auc", self.train_auc, on_step=True, on_epoch=False)
 
         return loss
 
@@ -45,6 +50,8 @@ class ExplainableClassifier(L.LightningModule):
         self.log("val_acc", self.val_acc, on_step=False, on_epoch=True)
         self.val_f1(prediction, y)
         self.log("val_f1", self.val_f1, on_step=False, on_epoch=True)
+        self.val_auc(prediction, y)
+        self.log("val_auc", self.val_auc, on_step=False, on_epoch=True)
 
         return loss
 
@@ -60,6 +67,8 @@ class ExplainableClassifier(L.LightningModule):
         self.log("test_acc", self.test_acc, on_step=False, on_epoch=True)
         self.test_f1(prediction, y)
         self.log("test_f1", self.test_f1, on_step=False, on_epoch=True)
+        self.test_auc(prediction, y)
+        self.log("test_auc", self.test_auc, on_step=False, on_epoch=True)
 
         return loss
 
@@ -72,5 +81,5 @@ class ExplainableClassifier(L.LightningModule):
         return prediction, features
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(), lr=1e-4)
         return optimizer
