@@ -141,6 +141,7 @@ class ChexpertDataModule(L.LightningDataModule):
     def _get_dataset(self, split):
         data_filter = {
             "Frontal/Lateral": "Frontal",
+            "AP/PA": "PA",
         }
 
         transform = transforms.Compose(
