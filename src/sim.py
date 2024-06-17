@@ -13,7 +13,7 @@ import torchvision
 import torch
 
 N_CLIENTS = 3
-N_ROUNDS = 6
+N_ROUNDS = 10
 
 densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
 model = ExplainableClassifier(densenet)
@@ -129,7 +129,7 @@ def metrics_aggregation_fn(metrics):
     return aggregated_metrics
 
 
-strategy = fl.server.strategy.FedAvg(
+strategy = SaveModelStrategy(
     fraction_fit=1.0,
     fraction_evaluate=1.0,
     fit_metrics_aggregation_fn=metrics_aggregation_fn,
