@@ -7,24 +7,29 @@ import matplotlib.pyplot as plt
 from models.densenet import DenseNet121
 from modules.explainable_classifier import ExplainableClassifier
 from data.mimic_datamodule import MIMICCXRDataModule, SyntheticMIMICCXRDataModule
+import yaml
 
 L.pytorch.seed_everything(42, workers=True)
 torch.multiprocessing.set_sharing_strategy("file_system")
+
+with open("config.yaml") as file:
+    config = yaml.safe_load(file)
+
 densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
 
 datamodule = MIMICCXRDataModule(
-    root="/nas-ctm01/datasets/public/MEDICAL/MIMIC-CXR",
-    split_path="/nas-ctm01/homes/fpcampos/dev/diffusion/medfusion/data/mimic-cxr-2.0.0-split.csv",
+    root=config["mimic_path"],
+    split_path=config["mimic_splits_path"],
     batch_size=8,
 )
 
 synthetic_datamodule = SyntheticMIMICCXRDataModule(
-    root="/nas-ctm01/homes/fpcampos/dev/diffusion/medfusion/dataset/synthetic_250",
+    root=config["anonymous_dataset_path"],
     batch_size=8,
 )
 
 module = ExplainableClassifier.load_from_checkpoint(
-    "explanations/tz9u4b0a/checkpoints/best_model.ckpt",
+    config["explainable_classifier"],
     model=densenet,
 )
 module.eval()
