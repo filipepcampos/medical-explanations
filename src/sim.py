@@ -3,6 +3,7 @@ from typing import List, Tuple, Union, Optional, Dict
 from collections import OrderedDict
 import numpy as np
 from federated.client import FlowerClient
+from helper.lightning import DPLightningDataModule
 from data.mimic_cxr_jpg import MIMICCXRDataModule
 from data.chexpert import ChexpertDataModule
 from data.brax import BraxDataModule
@@ -19,46 +20,50 @@ densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K
 model = ExplainableClassifier(densenet)
 
 
-def create_client(datamodule) -> FlowerClient:
+def create_client(datamodule, enable_dp: bool = False) -> FlowerClient:
     x, y = next(iter(datamodule.train_dataloader()))
     assert torch.min(x) >= -1 and torch.max(x) <= 1
     assert torch.min(y) >= 0 and torch.max(y) <= 1
 
+    if enable_dp:
+        datamodule = DPLightningDataModule(datamodule)
+
     return FlowerClient(model, datamodule).to_client()
 
 
-def get_mimic_client() -> FlowerClient:
+def get_mimic_client(enable_dp: bool = False) -> FlowerClient:
     datamodule = MIMICCXRDataModule(
         root="/nas-ctm01/datasets/public/MEDICAL/MIMIC-CXR",
         split_path="/nas-ctm01/homes/fpcampos/dev/diffusion/medfusion/data/mimic-cxr-2.0.0-split.csv",
         batch_size=8,
     )
-    return create_client(datamodule)
+    return create_client(datamodule, enable_dp=enable_dp)
 
 
-def get_chexpert_client() -> FlowerClient:
+def get_chexpert_client(enable_dp: bool = False) -> FlowerClient:
     datamodule = ChexpertDataModule(
         root="/nas-ctm01/datasets/public/MEDICAL/CheXpert-small",
         batch_size=8,
     )
-    return create_client(datamodule)
+    return create_client(datamodule, enable_dp=enable_dp)
 
 
-def get_brax_client() -> FlowerClient:
+def get_brax_client(enable_dp: bool = False) -> FlowerClient:
     datamodule = BraxDataModule(
         root="/nas-ctm01/datasets/public/MEDICAL/BRAX/physionet.org",
         batch_size=8,
     )
-    return create_client(datamodule)
+    return create_client(datamodule, enable_dp=enable_dp)
 
 
 def client_fn(cid: str):
+    enable_dp = True  # TODO: Remove debug
     if cid == "0":
-        return get_mimic_client()
+        return get_mimic_client(enable_dp)
     elif cid == "1":
-        return get_brax_client()
+        return get_brax_client(enable_dp)
     elif cid == "2":
-        return get_chexpert_client()
+        return get_chexpert_client(enable_dp)
     raise Exception(f"Unknown client: {cid}")
 
 
@@ -102,17 +107,6 @@ class SaveModelStrategy(fl.server.strategy.FedAvg):
         return aggregated_parameters, aggregated_metrics
 
 
-# strategy = fl.server.strategy.DifferentialPrivacyServerSideAdaptiveClipping(
-#     strategy=fl.server.strategy.FedAvg(
-#         fraction_fit=0.5,
-#         fraction_evaluate=0.5,
-#     ),
-#     noise_multiplier=0.1,
-#     initial_clipping_norm=1.0,
-#     num_sampled_clients=N_CLIENTS,
-# )
-
-
 def metrics_aggregation_fn(metrics):
     result = {}
     for count, metric_dict in metrics:
@@ -138,7 +132,7 @@ strategy = SaveModelStrategy(
 
 
 def main():
-    client_resources = {"num_cpus": 1, "num_gpus": 1}
+    client_resources = {"num_cpus": 1, "num_gpus": 0}
 
     # Launch the simulation
     history = fl.simulation.start_simulation(
