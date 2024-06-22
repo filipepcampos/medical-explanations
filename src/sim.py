@@ -13,11 +13,12 @@ import torchvision
 
 import torch
 
-N_CLIENTS = 3
+N_CLIENTS = 2
 N_ROUNDS = 10
+ENABLE_DP = True
 
 densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
-model = ExplainableClassifier(densenet)
+model = ExplainableClassifier(densenet, enable_dp=ENABLE_DP)
 
 
 def create_client(datamodule, enable_dp: bool = False) -> FlowerClient:
@@ -35,7 +36,7 @@ def get_mimic_client(enable_dp: bool = False) -> FlowerClient:
     datamodule = MIMICCXRDataModule(
         root="/nas-ctm01/datasets/public/MEDICAL/MIMIC-CXR",
         split_path="/nas-ctm01/homes/fpcampos/dev/diffusion/medfusion/data/mimic-cxr-2.0.0-split.csv",
-        batch_size=8,
+        batch_size=1,
     )
     return create_client(datamodule, enable_dp=enable_dp)
 
@@ -43,7 +44,7 @@ def get_mimic_client(enable_dp: bool = False) -> FlowerClient:
 def get_chexpert_client(enable_dp: bool = False) -> FlowerClient:
     datamodule = ChexpertDataModule(
         root="/nas-ctm01/datasets/public/MEDICAL/CheXpert-small",
-        batch_size=8,
+        batch_size=1,
     )
     return create_client(datamodule, enable_dp=enable_dp)
 
@@ -51,19 +52,18 @@ def get_chexpert_client(enable_dp: bool = False) -> FlowerClient:
 def get_brax_client(enable_dp: bool = False) -> FlowerClient:
     datamodule = BraxDataModule(
         root="/nas-ctm01/datasets/public/MEDICAL/BRAX/physionet.org",
-        batch_size=8,
+        batch_size=1,
     )
     return create_client(datamodule, enable_dp=enable_dp)
 
 
 def client_fn(cid: str):
-    enable_dp = True  # TODO: Remove debug
     if cid == "0":
-        return get_mimic_client(enable_dp)
+        return get_mimic_client(ENABLE_DP)
     elif cid == "1":
-        return get_brax_client(enable_dp)
+        return get_brax_client(ENABLE_DP)
     elif cid == "2":
-        return get_chexpert_client(enable_dp)
+        return get_chexpert_client(ENABLE_DP)
     raise Exception(f"Unknown client: {cid}")
 
 
@@ -132,7 +132,7 @@ strategy = SaveModelStrategy(
 
 
 def main():
-    client_resources = {"num_cpus": 1, "num_gpus": 0}
+    client_resources = {"num_cpus": 1, "num_gpus": 1}
 
     # Launch the simulation
     history = fl.simulation.start_simulation(

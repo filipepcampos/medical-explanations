@@ -69,7 +69,6 @@ def main():
             pl_callbacks.EarlyStopping(monitor="val_loss", patience=3, mode="min"),
         ],
         deterministic=True,
-        accelerator="cpu",
     )
 
     trainer.fit(classifier_module, datamodule)

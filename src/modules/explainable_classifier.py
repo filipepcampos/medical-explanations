@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 from opacus import PrivacyEngine
 from opacus.data_loader import DPDataLoader
+from opacus.validators import ModuleValidator
 
 
 class ExplainableClassifier(L.LightningModule):
@@ -36,6 +37,8 @@ class ExplainableClassifier(L.LightningModule):
             self.delta = delta
             self.noise_multiplier = noise_multiplier
             self.max_grad_norm = max_grad_norm
+
+            self.model = ModuleValidator.fix(self.model)
 
     def training_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
         x, y = batch
@@ -89,6 +92,11 @@ class ExplainableClassifier(L.LightningModule):
         prediction = self.model(x)
         prediction = nn.functional.sigmoid(prediction).squeeze()
 
+        if (
+            len(y) == 1
+        ):  # Opacus changes the model so that the prediction has size [] instead of [1]
+            prediction = prediction.unsqueeze(0)
+
         loss = nn.functional.binary_cross_entropy(prediction.float(), y.float())
         self.log("test_loss", loss)
         self.test_acc(prediction, y)
@@ -117,22 +125,19 @@ class ExplainableClassifier(L.LightningModule):
             self.trainer.fit_loop.setup_data()
             data_loader = self.trainer.train_dataloader
 
-            if hasattr(self, "dp"):
-                self.dp["model"].remove_hooks()
-                dp_model, optimizer, data_loader = self.privacy_engine.make_private(
-                    module=self,
-                    optimizer=optimizer,
-                    data_loader=data_loader,
-                    noise_multiplier=self.noise_multiplier,
-                    max_grad_norm=self.max_grad_norm,
-                    poisson_sampling=isinstance(data_loader, DPDataLoader),
-                )
-                self.dp = {"model": dp_model}
+            self.model, optimizer, data_loader = self.privacy_engine.make_private(
+                module=self.model,
+                optimizer=optimizer,
+                data_loader=data_loader,
+                noise_multiplier=self.noise_multiplier,
+                max_grad_norm=self.max_grad_norm,
+                poisson_sampling=isinstance(data_loader, DPDataLoader),
+            )
 
         return optimizer
 
     def on_train_epoch_end(self) -> None:
         if self.enable_dp:
             epsilon = self.privacy_engine.get_epsilon(self.delta)
-            print("EPSILON", epsilon)
+            print(f"(delta, epsilon): ({self.delta}, {epsilon}) - {type(self)}")
             self.log("epsilon", epsilon, on_epoch=True)
