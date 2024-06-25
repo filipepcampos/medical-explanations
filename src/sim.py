@@ -1,8 +1,9 @@
 import flwr as fl
+import warnings
 from typing import List, Tuple, Union, Optional, Dict
 from collections import OrderedDict
 import numpy as np
-from federated.client import FlowerClient
+from federated.dp_client import FlowerClient
 from helper.lightning import DPLightningDataModule
 from data.mimic_cxr_jpg import MIMICCXRDataModule
 from data.chexpert import ChexpertDataModule
@@ -10,8 +11,9 @@ from data.brax import BraxDataModule
 from models.densenet import DenseNet121
 from modules.explainable_classifier import ExplainableClassifier
 import torchvision
-
 import torch
+
+warnings.filterwarnings("ignore", category=UserWarning)
 
 N_CLIENTS = 2
 N_ROUNDS = 10
@@ -26,7 +28,7 @@ def create_client(datamodule, enable_dp: bool = False) -> FlowerClient:
     assert torch.min(x) >= -1 and torch.max(x) <= 1
     assert torch.min(y) >= 0 and torch.max(y) <= 1
 
-    if enable_dp:
+    if enable_dp:  # TODO: Fix
         datamodule = DPLightningDataModule(datamodule)
 
     return FlowerClient(model, datamodule).to_client()
@@ -132,20 +134,28 @@ strategy = SaveModelStrategy(
 
 
 def main():
-    client_resources = {"num_cpus": 1, "num_gpus": 1}
+    client = client_fn("0")
+    from federated.dp_client import _get_parameters
 
-    # Launch the simulation
-    history = fl.simulation.start_simulation(
-        client_fn=client_fn,  # A function to run a _virtual_ client when required
-        num_clients=N_CLIENTS,
-        client_resources=client_resources,
-        config=fl.server.ServerConfig(
-            num_rounds=N_ROUNDS,
-        ),  # Specify number of FL rounds
-        strategy=strategy,  # A Flower strategy
-    )
+    params = _get_parameters(model.model)
+    client.fit(params)
 
-    print(history)
+
+# def main():
+#     client_resources = {"num_cpus": 1, "num_gpus": 1}
+
+#     # Launch the simulation
+#     history = fl.simulation.start_simulation(
+#         client_fn=client_fn,  # A function to run a _virtual_ client when required
+#         num_clients=N_CLIENTS,
+#         client_resources=client_resources,
+#         config=fl.server.ServerConfig(
+#             num_rounds=N_ROUNDS,
+#         ),  # Specify number of FL rounds
+#         strategy=strategy,  # A Flower strategy
+#     )
+
+#     print(history)
 
 
 if __name__ == "__main__":

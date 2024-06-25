@@ -14,7 +14,7 @@ class ExplainableClassifier(L.LightningModule):
         model: nn.Module,
         enable_dp: bool = False,
         delta: float = 1e-5,
-        noise_multiplier: float = 1.0,
+        noise_multiplier: float = 1.3,
         max_grad_norm: float = 1.0,
     ):
         super().__init__()
@@ -98,6 +98,7 @@ class ExplainableClassifier(L.LightningModule):
             prediction = prediction.unsqueeze(0)
 
         loss = nn.functional.binary_cross_entropy(prediction.float(), y.float())
+
         self.log("test_loss", loss)
         self.test_acc(prediction, y)
         self.log("test_acc", self.test_acc, on_step=False, on_epoch=True)

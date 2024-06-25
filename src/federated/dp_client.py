@@ -9,6 +9,7 @@ class FlowerClient(fl.client.NumPyClient):
     def __init__(self, model: L.LightningModule, datamodule: L.LightningDataModule):
         self.model = model
         self.datamodule = datamodule
+        self.privacy_engine_state_dict = None
 
     def get_parameters(self, config):
         return _get_parameters(self.model.model)
@@ -20,8 +21,11 @@ class FlowerClient(fl.client.NumPyClient):
         self.set_parameters(parameters)
 
         trainer = L.Trainer(max_epochs=1)
+        if self.privacy_engine_state_dict:
+            self.model.privacy_engine.load_state_dict(self.privacy_engine_state_dict)
         trainer.fit(self.model, self.datamodule)
 
+        self.privacy_engine_state_dict = self.model.privacy_engine.state_dict()
         return (
             self.get_parameters(config={}),
             len(self.datamodule.train_dataloader()),
