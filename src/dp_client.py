@@ -156,5 +156,5 @@ appB = ClientApp(
 )
 
 appC = ClientApp(
-    client_fn=client_fn_parameterized(partition_id=3, noise_multiplier=1.3)
+    client_fn=client_fn_parameterized(partition_id=2, noise_multiplier=1.3)
 )
