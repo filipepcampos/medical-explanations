@@ -1,199 +1,160 @@
 import argparse
-import flwr as fl
-import multiprocessing as mp
-from dp_helpers import train, test
+import warnings
+from collections import OrderedDict
 
-"""
-If you get an error like: “failed to connect to all addresses” “grpc_status”:14 
-Then uncomment the lines bellow:
-"""
-# import os
-# if os.environ.get("https_proxy"):
-#     del os.environ["https_proxy"]
-# if os.environ.get("http_proxy"):
-#     del os.environ["http_proxy"]
+from flwr_datasets import FederatedDataset
+from flwr.client import NumPyClient, ClientApp
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from torchvision.transforms import Compose, Normalize, ToTensor
+from tqdm import tqdm
 
-def main():
-    """Get all args necessary for dp"""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-vb", type=int, default=256, help="Virtual batch size")
-    parser.add_argument("-b", type=int, default=256, help="Batch size")
-    parser.add_argument(
-        "-lr", type=float, default=1e-4, help="Learning rate for the optimizer"
-    )
-    parser.add_argument(
-        "-nm", type=float, default=1.2, help="Noise multiplier for Private Engine."
-    )
-    parser.add_argument(
-        "-mgn", type=float, default=1.0, help="Max grad norm for Private Engine."
-    )
-    parser.add_argument(
-        "-eps",
-        type=float,
-        default=1.0,
-        help="Target epsilon for the privacy budget.",
-    )
-    parser.add_argument(
-        "-cid", type=int, default=0, help="Client id (0, 1 or 2)."
-    )
+import torchvision
+from opacus.validators import ModuleValidator
+from models.densenet import DenseNet121
+from opacus import PrivacyEngine
+
+from data.brax import BraxDataModule
+from data.mimic_cxr_jpg import MIMICCXRDataModule
+from data.chexpert import ChexpertDataModule
+
+warnings.filterwarnings("ignore", category=UserWarning)
+
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+def train(net, train_loader, privacy_engine, optimizer, target_delta, epochs=1):
+    criterion = torch.nn.BCELoss()
+    for _ in range(epochs):
+        for (x, y) in tqdm(train_loader, "Training"):
+            optimizer.zero_grad()
+            criterion(net(x.to(DEVICE)), y.to(DEVICE)).backward() # TODO: Check sigmoid here
+            optimizer.step()
+
+    epsilon = privacy_engine.get_epsilon(delta=target_delta)
+    return epsilon
+
+
+def test(net, test_loader):
+    criterion = torch.nn.BCELoss()
+    correct, loss = 0, 0.0
+    with torch.no_grad():
+        for (x, y) in tqdm(test_loader, "Testing"):
+            x, y = x.to(DEVICE), y.to(DEVICE)
+            outputs = net(images) # TODO: Check sigmoid here
+            loss += criterion(x, y).item()
+            correct += (torch.max(outputs.data, 1)[1] == y).sum().item()
+    accuracy = correct / len(test_loader.dataset)
+    return loss, accuracy
+
+def load_data(partition_id: int, batch_size: int, split: str):
+    if partition_id == 0: 
+        dataloader = MIMICCXRDataModule(
+            root="/nas-ctm01/datasets/public/MEDICAL/MIMIC-CXR",
+            split_path="/nas-ctm01/homes/fpcampos/dev/diffusion/medfusion/data/mimic-cxr-2.0.0-split.csv",
+            batch_size=batch_size,
+        )
+    elif partition_id == 1: 
+        dataloader = ChexpertDataModule(
+            root="/nas-ctm01/datasets/public/MEDICAL/CheXpert-small",
+            batch_size=batch_size,
+        )
+    elif partition_id == 2: 
+        dataloader = BraxDataModule(
+            root="/nas-ctm01/datasets/public/MEDICAL/BRAX/physionet.org",
+            batch_size=batch_size,
+        )
+    else: 
+        raise ValueError(f"Invalid partition_id {partition_id}")
     
-    args = parser.parse_args()
-    cid = int(args.cid)
-    vbatch_size = int(args.vb)
-    batch_size = int(args.b)
-    lr = float(args.lr)
-    nm = float(args.nm)
-    mgn = float(args.mgn)
-    eps = float(args.eps)
-    
-
-    # Flower client
-    class DPClient(fl.client.NumPyClient):
-        def __init__(
-            self, 
-            cid: int,
-            vbatch_size: int,
-            batch_size: int,
-            lr: float,
-            eps: float,
-            nm: float,
-            mgn: float,
-            ):
-            """Differentially private implementation of a Cifar client.
-
-            Parameters
-            ----------
-            cid: int
-                Client id
-            vbatch_size : int
-                Virtual batch size.
-            batch_size : int
-                Batch size.
-            lr : float
-                Learning rate.
-            eps : float
-                Target epsilon.
-            nm : float
-                Noise multiplier.
-            mgn : float
-                Maximum gradient norm.
-            """
-            self.cid = cid
-            self.vbatch_size = vbatch_size
-            self.batch_size = batch_size
-            self.lr = lr
-            self.eps = eps
-            self.nm = nm
-            self.mgn = mgn
-            self.parameters = None
-            self.state_dict = None
-
-        def get_parameters(self):
-            return self.parameters
-
-        def set_parameters(self, parameters):
-            self.parameters = parameters
-
-        def fit(self, parameters, config):
-            self.set_parameters(parameters)
-
-            manager = mp.Manager()
-            # We receive the results through a shared dictionary
-            return_dict = manager.dict()
-            # Create the process
-            p = mp.Process(
-                target=train,
-                args=(
-                    parameters,
-                    return_dict,
-                    config,
-                    self.cid,
-                    self.vbatch_size,
-                    self.batch_size,
-                    self.lr,
-                    self.nm,
-                    self.mgn,
-                    self.state_dict,
-                    )
-                )
-            # Start the process
-            p.start()
-            # Wait for it to end
-            p.join()
-            # Close it
-            try:
-                p.close()
-            except ValueError as e:
-                print(f"Couldn't close the training process: {e}")
-            # Get the return values
-            new_parameters = return_dict["parameters"]
-            data_size = return_dict["data_size"]
-            # Store updated state dict
-            self.state_dict = return_dict["state_dict"]
-
-            # Check if target epsilon value is respected
-            accept = True
-            # Leave +0.3 margin to accomodate with opacus imprecisions
-            if return_dict["eps"] > self.eps + 0.3:
-                # refuse the client new parameters
-                accept = False
-                print(
-                    f"Epsilon over target value ({self.eps}), disconnecting client."
-                )
-                # Override new parameters with previous ones
-                new_parameters = parameters
-                print()
-            # Init metrics dict
-            metrics = {
-                "epsilon": return_dict["eps"],
-                "alpha": return_dict["alpha"],
-                "accept": accept,
-            }
-            # Del everything related to multiprocessing
-            del (manager, return_dict, p)
-            return new_parameters, data_size, metrics
-
-        def evaluate(self, parameters, config):
-            self.set_parameters(parameters)
-            # Prepare multiprocess
-            manager = mp.Manager()
-            # We receive the results through a shared dictionary
-            return_dict = manager.dict()
-            # Create the process
-            p = mp.Process(target=test, args=(
-                parameters,
-                return_dict,
-                self.cid,
-                self.batch_size
-                ))
-            # Start the process
-            p.start()
-            # Wait for it to end
-            p.join()
-            # Close it
-            try:
-                p.close()
-            except ValueError as e:
-                print(f"Coudln't close the evaluating process: {e}")
-            # Get the return values
-            loss = return_dict["loss"]
-            accuracy = return_dict["accuracy"]
-            data_size = return_dict["data_size"]
-            # Del everything related to multiprocessing
-            del (manager, return_dict, p)
-            return float(loss), data_size, {"accuracy": float(accuracy)}
-
-    # Start client
-    fl.client.start_numpy_client(server_address="[::]:9231", client=DPClient(
-        cid,
-        vbatch_size,
-        batch_size,
-        lr,
-        eps,
-        nm,
-        mgn,
-        ))
+    return dataloader.train_dataloader(), dataloader.val_dataloader()
 
 
-if __name__ == "__main__":
-    main()
+class FlowerClient(NumPyClient):
+    def __init__(
+        self,
+        model,
+        train_loader,
+        test_loader,
+        target_delta,
+        noise_multiplier,
+        max_grad_norm,
+    ) -> None:
+        super().__init__()
+        self.test_loader = test_loader
+        self.optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+        self.privacy_engine = PrivacyEngine(secure_mode=False)
+        self.target_delta = target_delta
+        (
+            self.model,
+            self.optimizer,
+            self.train_loader,
+        ) = self.privacy_engine.make_private(
+            module=model,
+            optimizer=self.optimizer,
+            data_loader=train_loader,
+            noise_multiplier=noise_multiplier,
+            max_grad_norm=max_grad_norm,
+        )
+
+    def get_parameters(self, config):
+        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
+
+    def set_parameters(self, parameters):
+        params_dict = zip(self.model.state_dict().keys(), parameters)
+        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+        self.model.load_state_dict(state_dict, strict=True)
+
+    def fit(self, parameters, config):
+        self.set_parameters(parameters)
+        epsilon = train(
+            self.model,
+            self.train_loader,
+            self.privacy_engine,
+            self.optimizer,
+            self.target_delta,
+        )
+
+        if epsilon is not None:
+            print(f"Epsilon value for delta={self.target_delta} is {epsilon:.2f}")
+        else:
+            print("Epsilon value not available.")
+        return (self.get_parameters(config={}), len(self.train_loader), {})
+
+    def evaluate(self, parameters, config):
+        self.set_parameters(parameters)
+        loss, accuracy = test(self.model, self.test_loader)
+        return loss, len(self.test_loader.dataset), {"accuracy": accuracy}
+
+
+def client_fn_parameterized(
+    partition_id, target_delta=1e-5, noise_multiplier=1.3, max_grad_norm=1.0
+):
+    def client_fn(partition_id: str):
+        net = DenseNet121(weights=None).to(DEVICE)
+        net = ModuleValidator.fix(net)
+        train_loader, test_loader = load_data(partition_id=partition_id)
+        return FlowerClient(
+            net,
+            train_loader,
+            test_loader,
+            target_delta,
+            noise_multiplier,
+            max_grad_norm,
+        ).to_client()
+
+    return client_fn
+
+
+appA = ClientApp(
+    client_fn=client_fn_parameterized(partition_id=0, noise_multiplier=1.3),
+)
+
+appB = ClientApp(
+    client_fn=client_fn_parameterized(partition_id=1, noise_multiplier=1.3),
+)
+
+appC = ClientApp(
+    client_fn=client_fn_parameterized(partition_id=3, noise_multiplier=1.3)
+)
