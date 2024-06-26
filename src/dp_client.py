@@ -1,7 +1,7 @@
 import argparse
 import flwr as fl
 import multiprocessing as mp
-from flower_helpers import train, test
+from dp_helpers import train, test
 
 """
 If you get an error like: “failed to connect to all addresses” “grpc_status”:14 
@@ -184,7 +184,8 @@ def main():
             return float(loss), data_size, {"accuracy": float(accuracy)}
 
     # Start client
-    fl.client.start_numpy_client("[::]:8080", client=DPClient(
+    fl.client.start_numpy_client(server_address="[::]:9231", client=DPClient(
+        cid,
         vbatch_size,
         batch_size,
         lr,

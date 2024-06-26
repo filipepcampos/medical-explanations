@@ -1,18 +1,17 @@
 import flwr as fl
 from collections import OrderedDict
 from flwr.server.strategy import FedAvg
-from flwr.common import Weights, Parameters, Scalar, FitRes
-from flwr.server.server import shutdown
-import numpy as np
+from flwr.common import Parameters, Scalar, FitRes
 import torch
 import torch.nn as nn
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader, Subset
-from torchvision.datasets import CIFAR10
 from opacus import PrivacyEngine
-from opacus.utils.uniform_sampler import UniformWithReplacementSampler
+from opacus.validators import ModuleValidator
+from models.densenet import DenseNet121
 from tqdm import tqdm
 from typing import Dict, List, Tuple, Optional, Callable
+from data.brax import BraxDataModule
+from data.mimic_cxr_jpg import MIMICCXRDataModule
+from data.chexpert import ChexpertDataModule
 
 DEVICE: str = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -93,8 +92,9 @@ def train(
     train_loader = get_dataloader(cid, batch_size, "train")
     len_dataset = len(train_loader.dataset)
     
-    net = DenseNet121()
+    net = DenseNet121(weights=None)
     net = ModuleValidator.fix(net)
+    net.to(DEVICE)
 
     if parameters is not None:
         set_weights(net, parameters)
@@ -130,8 +130,10 @@ def train(
         out = net(images)
         out = nn.functional.sigmoid(out).squeeze()
         loss = criterion(out, labels)
+        
         # Get preds
-        _, pred_ids = out.max(1)
+        pred_ids = out
+
         # Compute accuracy
         acc = (pred_ids == labels).sum().item() / batch_size
         loss.backward()
@@ -167,10 +169,11 @@ def test(parameters, return_dict, cid, batch_size):
     test_acc = 0.0
 
     test_loader = get_dataloader(cid, batch_size, "test")
-    len_dataset = len(train_loader.dataset)
+    len_dataset = len(test_loader.dataset)
     
-    net = DenseNet121()
+    net = DenseNet121(weights=None)
     net = ModuleValidator.fix(net)
+    net.to(DEVICE)
 
     # Load weights
     if parameters is not None:
@@ -183,7 +186,7 @@ def test(parameters, return_dict, cid, batch_size):
             out = net(images)
             out = nn.functional.sigmoid(out).squeeze()
             loss = criterion(out, labels)
-            _, pred_ids = out.max(1)
+            pred_ids = out
             acc = (pred_ids == labels).sum().item() / batch_size
             test_loss += (loss.detach().item() - test_loss) / (i + 1)
             test_acc += (acc - test_acc) / (i + 1)
@@ -209,7 +212,7 @@ class FedAvgDp(FedAvg):
         min_fit_clients: int = 2,
         min_eval_clients: int = 2,
         min_available_clients: int = 2,
-        eval_fn: Optional[Callable[[Weights], Optional[Tuple[float, float]]]] = None,
+        eval_fn = None,
         on_fit_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
         on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
         accept_failures: bool = True,
@@ -217,16 +220,16 @@ class FedAvgDp(FedAvg):
     ) -> None:
         FedAvg.__init__(
             self,
-            fraction_fit,
-            fraction_eval,
-            min_fit_clients,
-            min_eval_clients,
-            min_available_clients,
-            eval_fn,
-            on_fit_config_fn,
-            on_evaluate_config_fn,
-            accept_failures,
-            initial_parameters,
+            fraction_fit=fraction_fit,
+            fraction_evaluate=fraction_eval,
+            min_fit_clients=min_fit_clients,
+            min_evaluate_clients=min_eval_clients,
+            min_available_clients=min_available_clients,
+            evaluate_fn=eval_fn,
+            on_fit_config_fn=on_fit_config_fn,
+            on_evaluate_config_fn=on_evaluate_config_fn,
+            accept_failures=accept_failures,
+            initial_parameters=initial_parameters,
         )
         # Keep track of the maximum possible privacy budget
         self.max_epsilon = 0.0
@@ -236,7 +239,7 @@ class FedAvgDp(FedAvg):
         rnd: int,
         results: List[Tuple[fl.server.client_proxy.ClientProxy, FitRes]],
         failures: List[BaseException],
-    ) -> Optional[Weights]:
+    ):
         """Get the privacy budget"""
         if not results:
             return None
@@ -251,9 +254,6 @@ class FedAvgDp(FedAvg):
                 epsilons.append(r.metrics["epsilon"])
             else:
                 disconnect_clients.append(c)
-        # Disconnect clients if needed
-        if disconnect_clients:
-            shutdown(disconnect_clients)
         results = accepted_results
         if epsilons:
             self.max_epsilon = max(self.max_epsilon, max(epsilons))

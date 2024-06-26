@@ -1,7 +1,10 @@
 import flwr as fl
 import multiprocessing as mp
 import argparse
-from flower_helpers import Net, FedAvgDp, get_weights, test
+import torchvision
+from opacus.validators import ModuleValidator
+from models.densenet import DenseNet121
+from dp_helpers import FedAvgDp, get_weights, test
 
 
 """
@@ -25,7 +28,7 @@ def get_eval_fn():
         The evaluation function
     """
 
-    def evaluate(weights):
+    def evaluate(round, weights, empty):
         """Evaluation function for server side.
 
         Parameters
@@ -48,7 +51,7 @@ def get_eval_fn():
         # Create the process
         # 0 is for the share and 1 total number of clients, here for server test
         # we take the full test set
-        p = mp.Process(target=test, args=(weights, return_dict, 0, 1, batch_size))
+        p = mp.Process(target=test, args=(weights, return_dict, 0, batch_size)) # TODO: This is using a single centre
         # Start the process
         p.start()
         # Wait for it to end
@@ -99,7 +102,7 @@ def main():
     net = ModuleValidator.fix(net)
     init_weights = get_weights(net)
     # Convert the weights (np.ndarray) to parameters
-    init_param = fl.common.weights_to_parameters(init_weights)
+    init_param = fl.common.ndarrays_to_parameters(init_weights)
     # del the net as we don't need it anymore
     del net
     # Define the strategy
@@ -111,7 +114,9 @@ def main():
         initial_parameters=init_param,
     )
     fl.server.start_server(
-        "[::]:8080", config={"num_rounds": rounds}, strategy=strategy
+        server_address="[::]:9231",
+        config=fl.server.ServerConfig(num_rounds=rounds),
+        strategy=strategy
     )
     
 if __name__ == "__main__":
