@@ -93,7 +93,7 @@ def train(
     train_loader = get_dataloader(cid, batch_size, "train")
     len_dataset = len(train_loader.dataset)
     
-    net = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
+    net = DenseNet121()
     net = ModuleValidator.fix(net)
 
     if parameters is not None:
@@ -169,7 +169,7 @@ def test(parameters, return_dict, cid, batch_size):
     test_loader = get_dataloader(cid, batch_size, "test")
     len_dataset = len(train_loader.dataset)
     
-    net = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
+    net = DenseNet121()
     net = ModuleValidator.fix(net)
 
     # Load weights

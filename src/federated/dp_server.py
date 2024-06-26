@@ -73,12 +73,6 @@ def main():
     parser.add_argument(
         "-r", type=int, default=3, help="Number of rounds for the federated training"
     )
-    parser.add_argument(
-        "-nbc",
-        type=int,
-        default=2,
-        help="Number of clients to keep track of dataset share",
-    )
     parser.add_argument("-b", type=int, default=256, help="Batch size")
     parser.add_argument(
         "-fc",
@@ -101,7 +95,8 @@ def main():
     # Set the start method for multiprocessing in case Python version is under 3.8.1
     mp.set_start_method("spawn")
     # Create a new fresh model to initialize parameters
-    net = Net()
+    net = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
+    net = ModuleValidator.fix(net)
     init_weights = get_weights(net)
     # Convert the weights (np.ndarray) to parameters
     init_param = fl.common.weights_to_parameters(init_weights)
