@@ -6,6 +6,10 @@ from lightning.pytorch import loggers as pl_loggers
 from data.mimic_datamodule import SyntheticMIMICCXRDataModule
 from models.densenet import DenseNet121
 from modules.explainable_classifier import ExplainableClassifier
+import yaml
+
+with open("config.yaml") as f:
+    config = yaml.safe_load(f)
 
 L.pytorch.seed_everything(42, workers=True)
 
@@ -14,7 +18,7 @@ densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K
 classifier_module = ExplainableClassifier(densenet)
 
 datamodule = SyntheticMIMICCXRDataModule(
-    root="/nas-ctm01/homes/fpcampos/dev/diffusion/medfusion/dataset/synthetic_250",
+    root=config["anonymous_dataset_path"],
     batch_size=8,
 )
 
@@ -23,7 +27,7 @@ trainer = L.Trainer(
     logger=pl_loggers.WandbLogger(
         project="train_synthetic",
         name="train",
-    ),  # TODO: adjust
+    ),
     callbacks=[
         pl_callbacks.ModelSummary(
             max_depth=3,
@@ -50,6 +54,6 @@ train_loader.dataset.targets = train_loader.dataset.targets[:800]
 val_loader.dataset.samples = val_loader.dataset.samples[:200]
 val_loader.dataset.targets = val_loader.dataset.targets[:200]
 
-trainer.fit(classifier_module, train_loader, val_loader)  # TODO: Moreeee args
+trainer.fit(classifier_module, train_loader, val_loader)
 
 test = trainer.test(classifier_module, datamodule.test_dataloader())

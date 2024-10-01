@@ -9,9 +9,13 @@ from pytorch_grad_cam.utils.image import show_cam_on_image
 from models.densenet import DenseNet121
 from modules.explainable_classifier import ExplainableClassifier
 from data.mimic_datamodule import MIMICCXRDataModule
+import yaml
 
 L.pytorch.seed_everything(42, workers=True)
 torch.multiprocessing.set_sharing_strategy("file_system")
+
+with open("config.yaml") as f:
+    config = yaml.safe_load(f)
 
 
 def prepare_image(x):
@@ -43,14 +47,14 @@ def normalize_image(x):
 
 densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
 module = ExplainableClassifier.load_from_checkpoint(
-    "explanations/tz9u4b0a/checkpoints/best_model.ckpt",
+    config["explainable_classifier"],
     model=densenet,
 )
 module.eval()
 
 datamodule = MIMICCXRDataModule(
-    root="/nas-ctm01/datasets/public/MEDICAL/MIMIC-CXR",
-    split_path="/nas-ctm01/homes/fpcampos/dev/diffusion/medfusion/data/mimic-cxr-2.0.0-split.csv",
+    root=config["mimic_path"],
+    split_path=config["mimic_splits_path"],
     batch_size=8,
 )
 
@@ -69,4 +73,4 @@ for i in range(8):
         use_rgb=True,
     )
     plt.imshow(visualization)
-    plt.savefig(f"example_outputs/ablationcam_{i}.png")
+    plt.savefig(f"ablationcam_{i}.png")

@@ -5,16 +5,26 @@ import torch
 import numpy as np
 from PIL import Image
 from skimage.metrics import structural_similarity as ssim
+import yaml
 
 from models.densenet import DenseNet121
 from modules.explainable_classifier import ExplainableClassifier
 
 L.pytorch.seed_everything(42, workers=True)
 torch.multiprocessing.set_sharing_strategy("file_system")
+
+with open("config.yaml") as f:
+    config = yaml.safe_load(f)
+
 densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
 
-module = ExplainableClassifier(model=densenet)
-module.load_state_dict(torch.load("fl_normal_latest.pth"))
+# module = ExplainableClassifier(model=densenet)
+# module.load_state_dict(torch.load("fl_normal_latest.pth"))
+module = ExplainableClassifier.load_from_checkpoint(
+    config["explainable_classifier"],
+    model=densenet,
+)
+
 module.eval()
 
 transform = torchvision.transforms.Compose(
@@ -28,7 +38,7 @@ transform = torchvision.transforms.Compose(
     ],
 )
 
-catalogues_dir = "/nas-ctm01/homes/fpcampos/catalogues/output"
+catalogues_dir = config["catalogues_dir"]
 
 for catalogue_dir in os.listdir(catalogues_dir):
     catalogue_path = os.path.join(catalogues_dir, catalogue_dir)
