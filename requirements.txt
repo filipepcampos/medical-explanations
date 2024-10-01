@@ -1,0 +1,4 @@
+lightning>=2.4.0
+mimic_cxr_jpg_loader>=0.0.7
+torch>=2.4.1
+torchvision>=0.19.1
