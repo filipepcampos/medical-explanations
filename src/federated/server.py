@@ -30,16 +30,6 @@ class CustomStrategy(fl.server.strategy.FedAvg):
             failures,
         )
 
-        # metrics = {
-        #     "acc": 0,
-        #     "f1": 0,
-        # }
-
-        # for metric in metrics:
-        #     vals = [r.metrics.get(metric, 0) for _, r in results]
-        #     examples = [r.num_examples for _, r in results]
-        #     metrics[metric] = sum(vals) / sum(examples)
-
         if aggregated_parameters is not None:
             print(f"Saving round {server_round} aggregated_parameters...")
 

@@ -9,11 +9,16 @@ from data.brax import BraxDataModule
 from models.densenet import DenseNet121
 from modules.explainable_classifier import ExplainableClassifier
 import torchvision
+import yaml
 
 import torch
 
-N_CLIENTS = 3
-N_ROUNDS = 10
+with open("config.yaml") as f:
+    config = yaml.safe_load(f)
+
+N_CLIENTS = config["fl_number_clients"]
+N_ROUNDS = config["fl_number_rounds"]
+
 
 densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
 model = ExplainableClassifier(densenet)
@@ -29,8 +34,8 @@ def create_client(datamodule) -> FlowerClient:
 
 def get_mimic_client() -> FlowerClient:
     datamodule = MIMICCXRDataModule(
-        root="/nas-ctm01/datasets/public/MEDICAL/MIMIC-CXR",
-        split_path="/nas-ctm01/homes/fpcampos/dev/diffusion/medfusion/data/mimic-cxr-2.0.0-split.csv",
+        root=config["mimic_path"],
+        split_path=config["mimic_splits_path"],
         batch_size=8,
     )
     return create_client(datamodule)
@@ -38,7 +43,7 @@ def get_mimic_client() -> FlowerClient:
 
 def get_chexpert_client() -> FlowerClient:
     datamodule = ChexpertDataModule(
-        root="/nas-ctm01/datasets/public/MEDICAL/CheXpert-small",
+        root=config["chexpert_path"],
         batch_size=8,
     )
     return create_client(datamodule)
@@ -46,7 +51,7 @@ def get_chexpert_client() -> FlowerClient:
 
 def get_brax_client() -> FlowerClient:
     datamodule = BraxDataModule(
-        root="/nas-ctm01/datasets/public/MEDICAL/BRAX/physionet.org",
+        root=config["brax_path"],
         batch_size=8,
     )
     return create_client(datamodule)

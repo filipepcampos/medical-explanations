@@ -1,0 +1,35 @@
+# Data
+anonymous_dataset_path: /nas-ctm01/homes/fpcampos/dev/diffusion/medfusion/dataset/synthetic_250
+real_dataset_path: /nas-ctm01/datasets/public/MEDICAL/MIMIC-CXR
+real_dataset_splits_path: /nas-ctm01/homes/fpcampos/dev/diffusion/medfusion/data/mimic-cxr-2.0.0-split.csv
+
+# Models
+# path to the models which must have been trained previously
+verification_model: models/verification_model.pth
+retrieval_model: models/retrieval_model.pth
+
+# Outputs
+# these are a set of intermediate outputs between the different stages of the pipeline
+lookup_table_output: outputs/lookup_table.pth
+nearest_images_output: outputs/nearest_images.csv
+verification_output: outputs/verification_results.csv
+filtered_dataset_output: outputs/filtered_dataset
+
+
+# Data
+mimic_path: /nas-ctm01/datasets/public/MEDICAL/MIMIC-CXR
+mimic_splits_path: /nas-ctm01/homes/fpcampos/dev/diffusion/medfusion/data/mimic-cxr-2.0.0-split.csv
+anonymous_dataset_path: /nas-ctm01/homes/fpcampos/dev/diffusion/medfusion/dataset/synthetic_250
+chexpert_path: /nas-ctm01/datasets/public/MEDICAL/CheXpert-small
+brax_path: /nas-ctm01/datasets/public/MEDICAL/BRAX/physionet.org
+
+
+# Models
+explainable_classifier: explanations/tz9u4b0a/checkpoints/best_model.ckpt
+
+# Output
+catalogues_dir: /nas-ctm01/homes/fpcampos/catalogues/output
+
+# Federated Learning configuration
+fl_number_rounds: 10
+fl_number_clients: 3
