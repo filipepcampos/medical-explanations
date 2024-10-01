@@ -10,7 +10,7 @@ from mimic_cxr_jpg_loader.modifiers import (
     Split,
     FilterByViewPosition,
     FilterBySplit,
-    BinarizePathology,
+    UIgnore,
     Pathology,
     ViewPosition,
 )
@@ -49,7 +49,7 @@ class MIMICCXRDataModule(L.LightningDataModule):
             modifiers=[
                 FilterByViewPosition(ViewPosition.PA),
                 FilterBySplit(split),
-                BinarizePathology(Pathology.CARDIOMEGALY),
+                UIgnore(Pathology.CARDIOMEGALY),
             ],
         )
 

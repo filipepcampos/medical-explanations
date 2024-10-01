@@ -18,10 +18,13 @@ with open("config.yaml") as f:
 
 densenet = DenseNet121(weights=torchvision.models.DenseNet121_Weights.IMAGENET1K_V1)
 
+# module = ExplainableClassifier(model=densenet)
+# module.load_state_dict(torch.load("fl_normal_latest.pth"))
 module = ExplainableClassifier.load_from_checkpoint(
     config["explainable_classifier"],
     model=densenet,
 )
+
 module.eval()
 
 transform = torchvision.transforms.Compose(
@@ -62,17 +65,18 @@ for catalogue_dir in os.listdir(catalogues_dir):
     storage = []
     for x in catalogue_images:
         x = x.unsqueeze(0).to(module.device)
-        pred, feat = module.model(x)
+        pred, feat = module.forward_features(x)
         storage.append(feat.detach().cpu())
     storage = torch.stack(storage, dim=0)
 
     # Get the feature vector of the test image
     x = test_image.unsqueeze(0).to(module.device)
-    pred, feat = module.model(x)
+    pred, feat = module.forward_features(x)
 
     # Lookup closest feature vector
     distances = torch.cdist(feat.cpu().unsqueeze(0), storage)
     _, indices = torch.topk(distances, k=10, largest=False)
+    print("Closest images based on CNN:", indices)
 
     # Find closest images based on ssim
     ssim_scores = []

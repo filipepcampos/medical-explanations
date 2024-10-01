@@ -73,11 +73,11 @@ class ExplainableClassifier(L.LightningModule):
         return loss
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        prediction, features = self.model(x)
+        prediction, features = self.model.forward_with_features(x)
         return prediction
 
     def forward_features(self, x: torch.Tensor) -> torch.Tensor:
-        prediction, features = self.model(x)
+        prediction, features = self.model.forward_with_features(x)
         return prediction, features
 
     def configure_optimizers(self):
